@@ -16,12 +16,7 @@ public sealed class ApiFootballService
         new Dictionary<string, ApiFootballLeagueConfig>(StringComparer.OrdinalIgnoreCase)
         {
             ["algeria-ligue-1"] = new("algeria-ligue-1", "Algerian Ligue 1", "Algeria", 186, 2024),
-            ["ligue1-mobilis"] = new("ligue1-mobilis", "Ligue 1 Mobilis", "Algeria", 186, 2024),
-            ["premier-league"] = new("premier-league", "English Premier League", "England", 39, 2024),
-            ["bundesliga"] = new("bundesliga", "German Bundesliga", "Germany", 78, 2024),
-            ["ligue-1"] = new("ligue-1", "French Ligue 1", "France", 61, 2024),
-            ["serie-a"] = new("serie-a", "Italian Serie A", "Italy", 135, 2024),
-            ["la-liga"] = new("la-liga", "Spanish La Liga", "Spain", 140, 2024)
+            ["ligue1-mobilis"] = new("ligue1-mobilis", "Ligue 1 Mobilis", "Algeria", 186, 2024)
         };
 
     private readonly HttpClient _httpClient;

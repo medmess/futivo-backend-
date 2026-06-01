@@ -16,12 +16,7 @@ public sealed class SportsDbService
         new Dictionary<string, LeagueConfig>(StringComparer.OrdinalIgnoreCase)
         {
             ["algeria-ligue-1"] = new("algeria-ligue-1", "Algerian Ligue 1", "Algeria", null, ["Algerian Ligue Professionnelle 1", "Ligue 1 Mobilis", "Algerian Ligue 1"]),
-            ["ligue1-mobilis"] = new("ligue1-mobilis", "Ligue 1 Mobilis", "Algeria", null, ["Ligue 1 Mobilis", "Algerian Ligue Professionnelle 1", "Algerian Ligue 1"]),
-            ["premier-league"] = new("premier-league", "English Premier League", "England", "4328", ["English Premier League", "Premier League"]),
-            ["bundesliga"] = new("bundesliga", "German Bundesliga", "Germany", "4331", ["German Bundesliga", "Bundesliga"]),
-            ["ligue-1"] = new("ligue-1", "French Ligue 1", "France", "4334", ["French Ligue 1", "Ligue 1"]),
-            ["serie-a"] = new("serie-a", "Italian Serie A", "Italy", "4332", ["Italian Serie A", "Serie A"]),
-            ["la-liga"] = new("la-liga", "Spanish La Liga", "Spain", "4335", ["Spanish La Liga", "La Liga"])
+            ["ligue1-mobilis"] = new("ligue1-mobilis", "Ligue 1 Mobilis", "Algeria", null, ["Ligue 1 Mobilis", "Algerian Ligue Professionnelle 1", "Algerian Ligue 1"])
         };
 
     private readonly HttpClient _httpClient;
