@@ -313,7 +313,7 @@ public sealed class SportsDbService
         return new StandingRowDto(
             ParseInt(row.IntRank, fallbackPosition),
             row.StrTeam ?? "Unknown team",
-            row.StrTeamBadge,
+            row.StrBadge,
             played,
             wins,
             draws,
@@ -480,7 +480,7 @@ public sealed class SportsDbService
     private sealed record TableRow(
         string? IntRank,
         string? StrTeam,
-        string? StrTeamBadge,
+        string? StrBadge,
         string? IntPlayed,
         string? IntWin,
         string? IntDraw,
