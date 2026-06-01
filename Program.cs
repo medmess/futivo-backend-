@@ -23,8 +23,6 @@ builder.Services.AddHttpClient<SupabaseNewsRepository>();
 builder.Services.AddHttpClient<SupabaseNewsAdRepository>();
 builder.Services.AddHttpClient<SupabaseManualMatchRepository>();
 builder.Services.AddHttpClient<SupabaseStorageService>();
-builder.Services.AddHttpClient<SportsDbService>();
-builder.Services.AddHttpClient<ApiFootballService>();
 builder.Services.AddSingleton<InMemoryGroupRepository>();
 builder.Services.AddSingleton<InMemoryNewsRepository>();
 builder.Services.AddSingleton<InMemoryNewsAdRepository>();
@@ -89,14 +87,13 @@ app.UseHttpsRedirection();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-app.MapGet("/health", (ApiFootballService apiFootball) => Results.Ok(new
+app.MapGet("/health", () => Results.Ok(new
 {
     status = "ok",
     service = "Futivo backend",
     mode = app.Configuration.GetSection("Supabase").Get<SupabaseOptions>()?.IsConfigured == true
         ? "supabase"
-        : "memory",
-    apiFootballConfigured = apiFootball.IsConfigured
+        : "memory"
 }));
 
 app.MapPost("/api/fantasy/calculate-points",
@@ -158,160 +155,6 @@ app.MapGet("/api/ads/news", async (NewsAdService ads) =>
 {
     var activeAds = await ads.GetActiveAsync();
     return Results.Ok(activeAds.Select(NewsAdResponse.From));
-});
-
-app.MapGet("/api/standings/leagues", (SportsDbService sportsDb) =>
-{
-    return Results.Ok(sportsDb.GetLeagues());
-});
-
-app.MapGet("/api/standings/{leagueKey}", async (
-    string leagueKey,
-    SportsDbService sportsDb,
-    ApiFootballService apiFootball) =>
-{
-    try
-    {
-        var apiFootballStandings = await apiFootball.GetStandingsAsync(leagueKey);
-        if (apiFootballStandings.Count > 0)
-        {
-            return Results.Ok(apiFootballStandings);
-        }
-
-        if (apiFootball.IsConfigured)
-        {
-            return Results.Ok(Array.Empty<StandingRowDto>());
-        }
-
-        return Results.Ok(Array.Empty<StandingRowDto>());
-    }
-    catch (KeyNotFoundException)
-    {
-        return Results.NotFound(new { message = "Unknown league key." });
-    }
-});
-
-app.MapGet("/api/standings/{leagueKey}/fixtures", async (string leagueKey, SportsDbService sportsDb) =>
-{
-    try
-    {
-        return Results.Ok(await sportsDb.GetUpcomingFixturesAsync(leagueKey));
-    }
-    catch (KeyNotFoundException)
-    {
-        return Results.NotFound(new { message = "Unknown league key." });
-    }
-});
-
-app.MapGet("/api/matches/ligue1-mobilis/today", async (
-    SportsDbService sportsDb,
-    ApiFootballService apiFootball) =>
-{
-    var apiFootballFixtures = await apiFootball.GetFixturesByDateAsync("ligue1-mobilis", DateTime.UtcNow);
-    return Results.Ok(apiFootballFixtures.Count > 0
-        ? apiFootballFixtures
-        : await sportsDb.GetTodayFixturesAsync("ligue1-mobilis"));
-});
-
-app.MapGet("/api/matches/ligue1-mobilis/upcoming", async (
-    SportsDbService sportsDb,
-    ApiFootballService apiFootball) =>
-{
-    var apiFootballFixtures = await apiFootball.GetUpcomingFixturesAsync("ligue1-mobilis");
-    return Results.Ok(apiFootballFixtures.Count > 0
-        ? apiFootballFixtures
-        : await sportsDb.GetUpcomingFixturesAsync("ligue1-mobilis"));
-});
-
-app.MapGet("/api/matches/ligue1-mobilis/live", async (
-    SportsDbService sportsDb,
-    ApiFootballService apiFootball) =>
-{
-    var liveFixtures = await apiFootball.GetLiveFixturesAsync("ligue1-mobilis");
-    return Results.Ok(liveFixtures.Count > 0
-        ? liveFixtures
-        : await sportsDb.GetLiveOrLatestFixturesAsync("ligue1-mobilis"));
-});
-
-app.MapGet("/api/sportsdb/{leagueKey}/teams", async (string leagueKey, SportsDbService sportsDb) =>
-{
-    try
-    {
-        return Results.Ok(await sportsDb.GetTeamsAsync(leagueKey));
-    }
-    catch (KeyNotFoundException)
-    {
-        return Results.NotFound(new { message = "Unknown league key." });
-    }
-});
-
-app.MapGet("/api/sportsdb/{leagueKey}/players", async (string leagueKey, SportsDbService sportsDb) =>
-{
-    try
-    {
-        return Results.Ok(await sportsDb.GetPlayersAsync(leagueKey));
-    }
-    catch (KeyNotFoundException)
-    {
-        return Results.NotFound(new { message = "Unknown league key." });
-    }
-});
-
-app.MapGet("/api/sportsdb/teams/{teamId}/players", async (string teamId, SportsDbService sportsDb) =>
-{
-    return Results.Ok(await sportsDb.GetTeamPlayersAsync(teamId));
-});
-
-app.MapGet("/api/sportsdb/{leagueKey}/upcoming", async (string leagueKey, SportsDbService sportsDb) =>
-{
-    try
-    {
-        return Results.Ok(await sportsDb.GetUpcomingFixturesAsync(leagueKey));
-    }
-    catch (KeyNotFoundException)
-    {
-        return Results.NotFound(new { message = "Unknown league key." });
-    }
-});
-
-app.MapGet("/api/sportsdb/{leagueKey}/latest-results", async (string leagueKey, SportsDbService sportsDb) =>
-{
-    try
-    {
-        return Results.Ok(await sportsDb.GetLiveOrLatestFixturesAsync(leagueKey));
-    }
-    catch (KeyNotFoundException)
-    {
-        return Results.NotFound(new { message = "Unknown league key." });
-    }
-});
-
-app.MapGet("/api/sportsdb/{leagueKey}/bundle", async (string leagueKey, SportsDbService sportsDb) =>
-{
-    try
-    {
-        return Results.Ok(await sportsDb.GetLeagueDataBundleAsync(leagueKey));
-    }
-    catch (KeyNotFoundException)
-    {
-        return Results.NotFound(new { message = "Unknown league key." });
-    }
-});
-
-app.MapGet("/api/sportsdb/events/{eventId}", async (string eventId, SportsDbService sportsDb) =>
-{
-    var details = await sportsDb.GetEventDetailsAsync(eventId);
-    return details is null ? Results.NotFound(new { message = "Event not found." }) : Results.Ok(details);
-});
-
-app.MapGet("/api/sportsdb/events/{eventId}/lineups", async (string eventId, SportsDbService sportsDb) =>
-{
-    return Results.Ok(await sportsDb.GetEventLineupsAsync(eventId));
-});
-
-app.MapGet("/api/sportsdb/events/{eventId}/timeline", async (string eventId, SportsDbService sportsDb) =>
-{
-    return Results.Ok(await sportsDb.GetEventTimelineAsync(eventId));
 });
 
 app.MapPost("/api/ads/news", async (
