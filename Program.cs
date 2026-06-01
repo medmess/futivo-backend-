@@ -21,16 +21,20 @@ builder.Services.AddHttpClient<SupabaseAuthService>();
 builder.Services.AddHttpClient<SupabaseGroupRepository>();
 builder.Services.AddHttpClient<SupabaseNewsRepository>();
 builder.Services.AddHttpClient<SupabaseNewsAdRepository>();
+builder.Services.AddHttpClient<SupabaseManualMatchRepository>();
 builder.Services.AddHttpClient<SupabaseStorageService>();
+builder.Services.AddHttpClient<SportsDbService>();
 builder.Services.AddSingleton<InMemoryGroupRepository>();
 builder.Services.AddSingleton<InMemoryNewsRepository>();
 builder.Services.AddSingleton<InMemoryNewsAdRepository>();
+builder.Services.AddSingleton<InMemoryManualMatchRepository>();
 builder.Services.AddSingleton<GroupCodeGenerator>();
 builder.Services.AddScoped<FantasyScoringService>();
 builder.Services.AddScoped<StandingsService>();
 builder.Services.AddScoped<GroupService>();
 builder.Services.AddScoped<NewsService>();
 builder.Services.AddScoped<NewsAdService>();
+builder.Services.AddScoped<ManualMatchService>();
 builder.Services.AddScoped<IGroupRepository>(provider =>
 {
     var options = provider
@@ -61,6 +65,16 @@ builder.Services.AddScoped<INewsAdRepository>(provider =>
         ? provider.GetRequiredService<SupabaseNewsAdRepository>()
         : provider.GetRequiredService<InMemoryNewsAdRepository>();
 });
+builder.Services.AddScoped<IManualMatchRepository>(provider =>
+{
+    var options = provider
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<SupabaseOptions>>()
+        .Value;
+
+    return options.IsConfigured
+        ? provider.GetRequiredService<SupabaseManualMatchRepository>()
+        : provider.GetRequiredService<InMemoryManualMatchRepository>();
+});
 
 var app = builder.Build();
 
@@ -71,11 +85,13 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("FlutterDev");
 app.UseHttpsRedirection();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.MapGet("/health", () => Results.Ok(new
 {
     status = "ok",
-    service = "GFN.TV backend",
+    service = "Futivo backend",
     mode = app.Configuration.GetSection("Supabase").Get<SupabaseOptions>()?.IsConfigured == true
         ? "supabase"
         : "memory"
@@ -142,6 +158,131 @@ app.MapGet("/api/ads/news", async (NewsAdService ads) =>
     return Results.Ok(activeAds.Select(NewsAdResponse.From));
 });
 
+app.MapGet("/api/standings/leagues", (SportsDbService sportsDb) =>
+{
+    return Results.Ok(sportsDb.GetLeagues());
+});
+
+app.MapGet("/api/standings/{leagueKey}", async (string leagueKey, SportsDbService sportsDb) =>
+{
+    try
+    {
+        return Results.Ok(await sportsDb.GetStandingsAsync(leagueKey));
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound(new { message = "Unknown league key." });
+    }
+});
+
+app.MapGet("/api/standings/{leagueKey}/fixtures", async (string leagueKey, SportsDbService sportsDb) =>
+{
+    try
+    {
+        return Results.Ok(await sportsDb.GetUpcomingFixturesAsync(leagueKey));
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound(new { message = "Unknown league key." });
+    }
+});
+
+app.MapGet("/api/matches/ligue1-mobilis/today", async (SportsDbService sportsDb) =>
+{
+    return Results.Ok(await sportsDb.GetTodayFixturesAsync("ligue1-mobilis"));
+});
+
+app.MapGet("/api/matches/ligue1-mobilis/upcoming", async (SportsDbService sportsDb) =>
+{
+    return Results.Ok(await sportsDb.GetUpcomingFixturesAsync("ligue1-mobilis"));
+});
+
+app.MapGet("/api/matches/ligue1-mobilis/live", async (SportsDbService sportsDb) =>
+{
+    return Results.Ok(await sportsDb.GetLiveOrLatestFixturesAsync("ligue1-mobilis"));
+});
+
+app.MapGet("/api/sportsdb/{leagueKey}/teams", async (string leagueKey, SportsDbService sportsDb) =>
+{
+    try
+    {
+        return Results.Ok(await sportsDb.GetTeamsAsync(leagueKey));
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound(new { message = "Unknown league key." });
+    }
+});
+
+app.MapGet("/api/sportsdb/{leagueKey}/players", async (string leagueKey, SportsDbService sportsDb) =>
+{
+    try
+    {
+        return Results.Ok(await sportsDb.GetPlayersAsync(leagueKey));
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound(new { message = "Unknown league key." });
+    }
+});
+
+app.MapGet("/api/sportsdb/teams/{teamId}/players", async (string teamId, SportsDbService sportsDb) =>
+{
+    return Results.Ok(await sportsDb.GetTeamPlayersAsync(teamId));
+});
+
+app.MapGet("/api/sportsdb/{leagueKey}/upcoming", async (string leagueKey, SportsDbService sportsDb) =>
+{
+    try
+    {
+        return Results.Ok(await sportsDb.GetUpcomingFixturesAsync(leagueKey));
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound(new { message = "Unknown league key." });
+    }
+});
+
+app.MapGet("/api/sportsdb/{leagueKey}/latest-results", async (string leagueKey, SportsDbService sportsDb) =>
+{
+    try
+    {
+        return Results.Ok(await sportsDb.GetLiveOrLatestFixturesAsync(leagueKey));
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound(new { message = "Unknown league key." });
+    }
+});
+
+app.MapGet("/api/sportsdb/{leagueKey}/bundle", async (string leagueKey, SportsDbService sportsDb) =>
+{
+    try
+    {
+        return Results.Ok(await sportsDb.GetLeagueDataBundleAsync(leagueKey));
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound(new { message = "Unknown league key." });
+    }
+});
+
+app.MapGet("/api/sportsdb/events/{eventId}", async (string eventId, SportsDbService sportsDb) =>
+{
+    var details = await sportsDb.GetEventDetailsAsync(eventId);
+    return details is null ? Results.NotFound(new { message = "Event not found." }) : Results.Ok(details);
+});
+
+app.MapGet("/api/sportsdb/events/{eventId}/lineups", async (string eventId, SportsDbService sportsDb) =>
+{
+    return Results.Ok(await sportsDb.GetEventLineupsAsync(eventId));
+});
+
+app.MapGet("/api/sportsdb/events/{eventId}/timeline", async (string eventId, SportsDbService sportsDb) =>
+{
+    return Results.Ok(await sportsDb.GetEventTimelineAsync(eventId));
+});
+
 app.MapPost("/api/ads/news", async (
     NewsAdRequest request,
     NewsAdService ads) =>
@@ -154,6 +295,31 @@ app.MapPost("/api/ads/news", async (
 
     var ad = await ads.CreateAsync(request);
     return Results.Ok(NewsAdResponse.From(ad));
+});
+
+app.MapGet("/api/matches/{matchId}/manual", async (
+    string matchId,
+    ManualMatchService matches) =>
+{
+    var details = await matches.GetAsync(matchId);
+    return details is null
+        ? Results.Ok(ManualMatchDetailsResponse.Empty(matchId))
+        : Results.Ok(ManualMatchDetailsResponse.From(details));
+});
+
+app.MapPost("/api/admin/matches/manual", async (
+    ManualMatchDetailsRequest request,
+    ManualMatchService matches) =>
+{
+    if (string.IsNullOrWhiteSpace(request.MatchId) ||
+        string.IsNullOrWhiteSpace(request.HomeTeam) ||
+        string.IsNullOrWhiteSpace(request.AwayTeam))
+    {
+        return Results.BadRequest(new { message = "matchId, homeTeam and awayTeam are required." });
+    }
+
+    var details = await matches.UpsertAsync(request);
+    return Results.Ok(ManualMatchDetailsResponse.From(details));
 });
 
 app.MapDelete("/api/news/telegram/{telegramPostId:long}", async (
@@ -271,5 +437,45 @@ sealed record NewsAdResponse(
             ad.TargetUrl,
             ad.IsActive,
             ad.CreatedAt);
+    }
+}
+
+sealed record ManualMatchDetailsResponse(
+    string MatchId,
+    string HomeTeam,
+    string AwayTeam,
+    string? HomeFormation,
+    string? AwayFormation,
+    IReadOnlyList<MatchLineupPlayer> HomeLineup,
+    IReadOnlyList<MatchLineupPlayer> AwayLineup,
+    IReadOnlyList<MatchEvent> Events,
+    DateTimeOffset? UpdatedAt)
+{
+    public static ManualMatchDetailsResponse Empty(string matchId)
+    {
+        return new ManualMatchDetailsResponse(
+            matchId,
+            "",
+            "",
+            null,
+            null,
+            [],
+            [],
+            [],
+            null);
+    }
+
+    public static ManualMatchDetailsResponse From(ManualMatchDetails details)
+    {
+        return new ManualMatchDetailsResponse(
+            details.MatchId,
+            details.HomeTeam,
+            details.AwayTeam,
+            details.HomeFormation,
+            details.AwayFormation,
+            details.HomeLineup,
+            details.AwayLineup,
+            details.Events,
+            details.UpdatedAt);
     }
 }

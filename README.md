@@ -1,6 +1,6 @@
-# GFN.TV Backend
+# Futivo Backend
 
-ASP.NET Core backend for GFN.TV app logic. Supabase remains responsible for
+ASP.NET Core backend for Futivo app logic. Supabase remains responsible for
 authentication and database storage. This API handles algorithms and safe server
 logic:
 
