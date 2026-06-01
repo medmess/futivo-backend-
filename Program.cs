@@ -89,13 +89,14 @@ app.UseHttpsRedirection();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-app.MapGet("/health", () => Results.Ok(new
+app.MapGet("/health", (ApiFootballService apiFootball) => Results.Ok(new
 {
     status = "ok",
     service = "Futivo backend",
     mode = app.Configuration.GetSection("Supabase").Get<SupabaseOptions>()?.IsConfigured == true
         ? "supabase"
-        : "memory"
+        : "memory",
+    apiFootballConfigured = apiFootball.IsConfigured
 }));
 
 app.MapPost("/api/fantasy/calculate-points",
@@ -182,7 +183,7 @@ app.MapGet("/api/standings/{leagueKey}", async (
             return Results.Ok(Array.Empty<StandingRowDto>());
         }
 
-        return Results.Ok(await sportsDb.GetStandingsAsync(leagueKey));
+        return Results.Ok(Array.Empty<StandingRowDto>());
     }
     catch (KeyNotFoundException)
     {
