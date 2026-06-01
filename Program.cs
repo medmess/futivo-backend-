@@ -24,6 +24,7 @@ builder.Services.AddHttpClient<SupabaseNewsAdRepository>();
 builder.Services.AddHttpClient<SupabaseManualMatchRepository>();
 builder.Services.AddHttpClient<SupabaseStorageService>();
 builder.Services.AddHttpClient<SportsDbService>();
+builder.Services.AddHttpClient<ApiFootballService>();
 builder.Services.AddSingleton<InMemoryGroupRepository>();
 builder.Services.AddSingleton<InMemoryNewsRepository>();
 builder.Services.AddSingleton<InMemoryNewsAdRepository>();
@@ -163,10 +164,24 @@ app.MapGet("/api/standings/leagues", (SportsDbService sportsDb) =>
     return Results.Ok(sportsDb.GetLeagues());
 });
 
-app.MapGet("/api/standings/{leagueKey}", async (string leagueKey, SportsDbService sportsDb) =>
+app.MapGet("/api/standings/{leagueKey}", async (
+    string leagueKey,
+    SportsDbService sportsDb,
+    ApiFootballService apiFootball) =>
 {
     try
     {
+        var apiFootballStandings = await apiFootball.GetStandingsAsync(leagueKey);
+        if (apiFootballStandings.Count > 0)
+        {
+            return Results.Ok(apiFootballStandings);
+        }
+
+        if (apiFootball.IsConfigured)
+        {
+            return Results.Ok(Array.Empty<StandingRowDto>());
+        }
+
         return Results.Ok(await sportsDb.GetStandingsAsync(leagueKey));
     }
     catch (KeyNotFoundException)
@@ -187,19 +202,34 @@ app.MapGet("/api/standings/{leagueKey}/fixtures", async (string leagueKey, Sport
     }
 });
 
-app.MapGet("/api/matches/ligue1-mobilis/today", async (SportsDbService sportsDb) =>
+app.MapGet("/api/matches/ligue1-mobilis/today", async (
+    SportsDbService sportsDb,
+    ApiFootballService apiFootball) =>
 {
-    return Results.Ok(await sportsDb.GetTodayFixturesAsync("ligue1-mobilis"));
+    var apiFootballFixtures = await apiFootball.GetFixturesByDateAsync("ligue1-mobilis", DateTime.UtcNow);
+    return Results.Ok(apiFootballFixtures.Count > 0
+        ? apiFootballFixtures
+        : await sportsDb.GetTodayFixturesAsync("ligue1-mobilis"));
 });
 
-app.MapGet("/api/matches/ligue1-mobilis/upcoming", async (SportsDbService sportsDb) =>
+app.MapGet("/api/matches/ligue1-mobilis/upcoming", async (
+    SportsDbService sportsDb,
+    ApiFootballService apiFootball) =>
 {
-    return Results.Ok(await sportsDb.GetUpcomingFixturesAsync("ligue1-mobilis"));
+    var apiFootballFixtures = await apiFootball.GetUpcomingFixturesAsync("ligue1-mobilis");
+    return Results.Ok(apiFootballFixtures.Count > 0
+        ? apiFootballFixtures
+        : await sportsDb.GetUpcomingFixturesAsync("ligue1-mobilis"));
 });
 
-app.MapGet("/api/matches/ligue1-mobilis/live", async (SportsDbService sportsDb) =>
+app.MapGet("/api/matches/ligue1-mobilis/live", async (
+    SportsDbService sportsDb,
+    ApiFootballService apiFootball) =>
 {
-    return Results.Ok(await sportsDb.GetLiveOrLatestFixturesAsync("ligue1-mobilis"));
+    var liveFixtures = await apiFootball.GetLiveFixturesAsync("ligue1-mobilis");
+    return Results.Ok(liveFixtures.Count > 0
+        ? liveFixtures
+        : await sportsDb.GetLiveOrLatestFixturesAsync("ligue1-mobilis"));
 });
 
 app.MapGet("/api/sportsdb/{leagueKey}/teams", async (string leagueKey, SportsDbService sportsDb) =>
