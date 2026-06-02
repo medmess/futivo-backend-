@@ -1,11 +1,12 @@
-# Futivo Platform
+# Futivo Backend
 
-Monorepo for the Futivo football and fantasy platform.
+ASP.NET Core backend for the Futivo football and fantasy platform.
 
 ## Project structure
 
-- Root folder: ASP.NET Core backend used by Render.
-- `flutter_app/`: Flutter mobile/web interface.
+- Root folder: ASP.NET Core API used by Render.
+- `Models/`: request/response and domain DTOs.
+- `Services/`: fantasy, news, groups, ads, matches and Supabase services.
 - `supabase/schema.sql`: database schema changes to run manually in Supabase.
 
 Supabase remains responsible for authentication and database storage. The ASP.NET
@@ -17,7 +18,7 @@ Core API handles algorithms and safe server logic:
 - Telegram image + caption news ingestion
 - news ads and admin-ready news management
 
-## Run backend locally
+## Run locally
 
 ```powershell
 cd C:\flutter-projects\fantasy_backend_repo
@@ -26,17 +27,6 @@ dotnet run
 
 Without Supabase settings, group endpoints use in-memory storage for safe local
 testing and do not affect any database.
-
-## Run Flutter app locally
-
-```powershell
-cd C:\flutter-projects\fantasy_backend_repo\flutter_app
-flutter pub get
-flutter run
-```
-
-Create `flutter_app/.env` from `flutter_app/.env.example` before building a
-fresh clone. Real secrets are intentionally not committed.
 
 ## Supabase configuration
 
