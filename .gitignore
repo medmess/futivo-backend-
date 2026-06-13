@@ -1,16 +1,20 @@
 bin/
 obj/
-out/
-
 .vs/
 .vscode/
+
+.env
+.env.*
+!.env.example
+
 *.user
 *.suo
+*.rsuser
 *.userosscache
 *.sln.docstates
 
-.env
-*.local
-appsettings.Production.json
+*.session
+*.session-journal
 
-*.log
+appsettings.Local.json
+appsettings.Production.local.json

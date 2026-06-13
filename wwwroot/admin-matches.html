@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Futivo match admin</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #071510;
+      --panel: #102818;
+      --panel2: #163522;
+      --text: #ffffff;
+      --muted: #94b8a3;
+      --primary: #22c55e;
+      --gold: #bef264;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(34, 197, 94, .22), transparent 34rem),
+        linear-gradient(180deg, #0f2e1c, var(--bg));
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0;
+    }
+
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(28px, 5vw, 44px);
+      letter-spacing: -0.04em;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    section, .field {
+      background: rgba(16, 40, 24, .88);
+      border: 1px solid rgba(255, 255, 255, .08);
+      border-radius: 18px;
+      padding: 16px;
+    }
+
+    section {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    input, textarea {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .07);
+      color: var(--text);
+      padding: 13px 14px;
+      font: inherit;
+      font-weight: 700;
+    }
+
+    textarea {
+      min-height: 190px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .actions {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 16px;
+      background: var(--primary);
+      color: #052e16;
+      padding: 14px 18px;
+      font-weight: 950;
+      cursor: pointer;
+    }
+
+    code {
+      color: var(--gold);
+      font-weight: 800;
+    }
+
+    #status {
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    @media (max-width: 760px) {
+      form { grid-template-columns: 1fr; }
+      header { align-items: start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Futivo match admin</h1>
+        <p>Enter match XI, formations, goals, cards and penalties manually.</p>
+      </div>
+      <p>POST <code>/api/admin/matches/manual</code></p>
+    </header>
+
+    <form id="form">
+      <div class="field">
+        <label for="matchId">Match ID</label>
+        <input id="matchId" required value="mexico-south-africa-2026-6-11-20">
+      </div>
+      <div class="field">
+        <label for="homeTeam">Home team</label>
+        <input id="homeTeam" required value="Mexico">
+      </div>
+      <div class="field">
+        <label for="awayTeam">Away team</label>
+        <input id="awayTeam" required value="South Africa">
+      </div>
+      <div class="field">
+        <label for="homeFormation">Home formation</label>
+        <input id="homeFormation" value="4-3-3">
+      </div>
+      <div class="field">
+        <label for="awayFormation">Away formation</label>
+        <input id="awayFormation" value="4-2-3-1">
+      </div>
+      <div class="field">
+        <label for="liveStreamUrl">Live broadcast URL</label>
+        <input id="liveStreamUrl" placeholder="https://example.com/live/match">
+      </div>
+
+      <section>
+        <label for="homeLineup">Home lineup JSON</label>
+        <textarea id="homeLineup">[
+  {"name":"Player One","position":"GK","shirtNumber":1,"starter":true},
+  {"name":"Player Two","position":"DEF","shirtNumber":2,"starter":true}
+]</textarea>
+      </section>
+
+      <section>
+        <label for="awayLineup">Away lineup JSON</label>
+        <textarea id="awayLineup">[
+  {"name":"Player One","position":"GK","shirtNumber":1,"starter":true},
+  {"name":"Player Two","position":"DEF","shirtNumber":2,"starter":true}
+]</textarea>
+      </section>
+
+      <section>
+        <label for="events">Events JSON</label>
+        <textarea id="events">[
+  {"minute":19,"team":"Mexico","player":"Player Name","type":"goal","detail":"open play","assist":"Assist Player","scored":true},
+  {"minute":41,"team":"South Africa","player":"Player Name","type":"card","detail":"yellow card"},
+  {"minute":77,"team":"Mexico","player":"Player Name","type":"penalty","detail":"penalty missed","scored":false}
+]</textarea>
+      </section>
+
+      <div class="actions">
+        <button type="submit">Save match data</button>
+        <span id="status">Ready</span>
+      </div>
+    </form>
+  </main>
+
+  <script>
+    const form = document.getElementById('form');
+    const status = document.getElementById('status');
+
+    const parseJson = (id) => {
+      const value = document.getElementById(id).value.trim();
+      return value ? JSON.parse(value) : [];
+    };
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      status.textContent = 'Saving...';
+
+      try {
+        const payload = {
+          matchId: document.getElementById('matchId').value.trim(),
+          homeTeam: document.getElementById('homeTeam').value.trim(),
+          awayTeam: document.getElementById('awayTeam').value.trim(),
+          homeFormation: document.getElementById('homeFormation').value.trim(),
+          awayFormation: document.getElementById('awayFormation').value.trim(),
+          liveStreamUrl: document.getElementById('liveStreamUrl').value.trim(),
+          homeLineup: parseJson('homeLineup'),
+          awayLineup: parseJson('awayLineup'),
+          events: parseJson('events')
+        };
+
+        const response = await fetch('/api/admin/matches/manual', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+
+        status.textContent = 'Saved. Refresh the match page in the app.';
+      } catch (error) {
+        status.textContent = `Error: ${error.message}`;
+      }
+    });
+  </script>
+</body>
+</html>

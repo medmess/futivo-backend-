@@ -1,27 +1,18 @@
 # Futivo Backend
 
-ASP.NET Core backend for the Futivo football and fantasy platform.
-
-## Project structure
-
-- Root folder: ASP.NET Core API used by Render.
-- `Models/`: request/response and domain DTOs.
-- `Services/`: fantasy, news, groups, ads, matches and Supabase services.
-- `supabase/schema.sql`: database schema changes to run manually in Supabase.
-
-Supabase remains responsible for authentication and database storage. The ASP.NET
-Core API handles algorithms and safe server logic:
+ASP.NET Core backend for Futivo app logic. Supabase remains responsible for
+authentication and database storage. This API handles algorithms and safe server
+logic:
 
 - fantasy points calculation
 - official group standings calculation
 - fantasy group creation / join / list
-- Telegram image + caption news ingestion
-- news ads and admin-ready news management
+- Telegram image + caption news ingestion with admin moderation
 
 ## Run locally
 
 ```powershell
-cd C:\flutter-projects\fantasy_backend_repo
+cd C:\flutter-projects\gfn_tv_backend
 dotnet run
 ```
 
@@ -53,14 +44,14 @@ Authorization: Bearer <supabase_access_token>
 - `POST /api/groups/join`
 - `GET /api/groups/mine`
 - `POST /api/news/telegram`
-- `POST /api/news/admin`
 - `GET /api/news/latest`
-- `DELETE /api/news/telegram/{telegramPostId}`
 - `GET /api/news/image/{fileName}`
 - `GET /api/ads/news`
 - `POST /api/ads/news`
-- `GET /api/matches/{matchId}/manual`
-- `POST /api/admin/matches/manual`
+
+Telegram articles are stored with `moderation_status = pending`. The public
+feed only returns `approved` articles, so an admin can approve or reject them
+from the dashboard before they appear in the app.
 
 Run `supabase/schema.sql` in the Supabase SQL editor when you want database
-persistence for groups.
+persistence for groups/news moderation.

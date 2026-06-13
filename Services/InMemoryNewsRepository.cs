@@ -30,6 +30,10 @@ public sealed class InMemoryNewsRepository : INewsRepository
         lock (_lock)
         {
             var posts = _postsByTelegramId.Values
+                .Where(post => string.Equals(
+                    post.ModerationStatus,
+                    "approved",
+                    StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(post => post.PublishedAt)
                 .Take(limit)
                 .ToArray();

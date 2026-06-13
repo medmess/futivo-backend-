@@ -22,11 +22,13 @@ builder.Services.AddHttpClient<SupabaseGroupRepository>();
 builder.Services.AddHttpClient<SupabaseNewsRepository>();
 builder.Services.AddHttpClient<SupabaseNewsAdRepository>();
 builder.Services.AddHttpClient<SupabaseManualMatchRepository>();
+builder.Services.AddHttpClient<SupabaseMatchPredictionRepository>();
 builder.Services.AddHttpClient<SupabaseStorageService>();
 builder.Services.AddSingleton<InMemoryGroupRepository>();
 builder.Services.AddSingleton<InMemoryNewsRepository>();
 builder.Services.AddSingleton<InMemoryNewsAdRepository>();
 builder.Services.AddSingleton<InMemoryManualMatchRepository>();
+builder.Services.AddSingleton<InMemoryMatchPredictionRepository>();
 builder.Services.AddSingleton<GroupCodeGenerator>();
 builder.Services.AddScoped<FantasyScoringService>();
 builder.Services.AddScoped<StandingsService>();
@@ -34,6 +36,7 @@ builder.Services.AddScoped<GroupService>();
 builder.Services.AddScoped<NewsService>();
 builder.Services.AddScoped<NewsAdService>();
 builder.Services.AddScoped<ManualMatchService>();
+builder.Services.AddScoped<MatchPredictionService>();
 builder.Services.AddScoped<IGroupRepository>(provider =>
 {
     var options = provider
@@ -73,6 +76,16 @@ builder.Services.AddScoped<IManualMatchRepository>(provider =>
     return options.IsConfigured
         ? provider.GetRequiredService<SupabaseManualMatchRepository>()
         : provider.GetRequiredService<InMemoryManualMatchRepository>();
+});
+builder.Services.AddScoped<IMatchPredictionRepository>(provider =>
+{
+    var options = provider
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<SupabaseOptions>>()
+        .Value;
+
+    return options.IsConfigured
+        ? provider.GetRequiredService<SupabaseMatchPredictionRepository>()
+        : provider.GetRequiredService<InMemoryMatchPredictionRepository>();
 });
 
 var app = builder.Build();
@@ -196,6 +209,58 @@ app.MapPost("/api/admin/matches/manual", async (
     return Results.Ok(ManualMatchDetailsResponse.From(details));
 });
 
+app.MapGet("/api/predictions/mine", async (
+    HttpContext httpContext,
+    SupabaseAuthService auth,
+    MatchPredictionService predictions) =>
+{
+    var user = await auth.GetUserAsync(httpContext);
+    if (user is null) return Results.Unauthorized();
+
+    var mine = await predictions.GetMineAsync(user);
+    return Results.Ok(mine.Select(MatchPredictionResponse.From));
+});
+
+app.MapGet("/api/matches/{matchId}/prediction", async (
+    string matchId,
+    HttpContext httpContext,
+    SupabaseAuthService auth,
+    MatchPredictionService predictions) =>
+{
+    var user = await auth.GetUserAsync(httpContext);
+    if (user is null) return Results.Unauthorized();
+
+    var prediction = await predictions.GetAsync(user, matchId);
+    return prediction is null
+        ? Results.NotFound(new { message = "Prediction not found." })
+        : Results.Ok(MatchPredictionResponse.From(prediction));
+});
+
+app.MapPost("/api/matches/{matchId}/prediction", async (
+    string matchId,
+    MatchPredictionRequest request,
+    HttpContext httpContext,
+    SupabaseAuthService auth,
+    MatchPredictionService predictions) =>
+{
+    var user = await auth.GetUserAsync(httpContext);
+    if (user is null) return Results.Unauthorized();
+
+    try
+    {
+        var prediction = await predictions.UpsertAsync(user, matchId, request);
+        return Results.Ok(MatchPredictionResponse.From(prediction));
+    }
+    catch (ArgumentOutOfRangeException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
+});
+
 app.MapDelete("/api/news/telegram/{telegramPostId:long}", async (
     long telegramPostId,
     NewsService news) =>
@@ -268,8 +333,10 @@ sealed record NewsPostResponse(
     string ImagePath,
     string ImageUrl,
     string Source,
+    string ModerationStatus,
     DateTimeOffset PublishedAt,
-    DateTimeOffset CreatedAt)
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? ReviewedAt)
 {
     public static NewsPostResponse From(NewsPost post, string? baseUrl = null)
     {
@@ -287,8 +354,10 @@ sealed record NewsPostResponse(
             post.ImagePath,
             imageUrl ?? post.ImagePath,
             post.Source,
+            post.ModerationStatus,
             post.PublishedAt,
-            post.CreatedAt);
+            post.CreatedAt,
+            post.ReviewedAt);
     }
 }
 
@@ -320,6 +389,7 @@ sealed record ManualMatchDetailsResponse(
     string AwayTeam,
     string? HomeFormation,
     string? AwayFormation,
+    string? LiveStreamUrl,
     IReadOnlyList<MatchLineupPlayer> HomeLineup,
     IReadOnlyList<MatchLineupPlayer> AwayLineup,
     IReadOnlyList<MatchEvent> Events,
@@ -331,6 +401,7 @@ sealed record ManualMatchDetailsResponse(
             matchId,
             "",
             "",
+            null,
             null,
             null,
             [],
@@ -347,9 +418,38 @@ sealed record ManualMatchDetailsResponse(
             details.AwayTeam,
             details.HomeFormation,
             details.AwayFormation,
+            details.LiveStreamUrl,
             details.HomeLineup,
             details.AwayLineup,
             details.Events,
             details.UpdatedAt);
+    }
+}
+
+sealed record MatchPredictionResponse(
+    string Id,
+    string UserId,
+    string MatchId,
+    string HomeTeam,
+    string AwayTeam,
+    int HomeScore,
+    int AwayScore,
+    DateTimeOffset? Kickoff,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt)
+{
+    public static MatchPredictionResponse From(MatchPrediction prediction)
+    {
+        return new MatchPredictionResponse(
+            prediction.Id,
+            prediction.UserId,
+            prediction.MatchId,
+            prediction.HomeTeam,
+            prediction.AwayTeam,
+            prediction.HomeScore,
+            prediction.AwayScore,
+            prediction.Kickoff,
+            prediction.CreatedAt,
+            prediction.UpdatedAt);
     }
 }

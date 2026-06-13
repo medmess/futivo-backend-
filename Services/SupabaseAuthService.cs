@@ -19,14 +19,14 @@ public sealed class SupabaseAuthService(
             !bearer.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         {
             return environment.IsDevelopment() && !_options.IsConfigured
-                ? new AuthenticatedUser("dev-user", "dev@gfn.local")
+                ? new AuthenticatedUser("dev-user", "dev@futivo.local")
                 : null;
         }
 
         if (!_options.IsConfigured)
         {
             return environment.IsDevelopment()
-                ? new AuthenticatedUser("dev-user", "dev@gfn.local")
+                ? new AuthenticatedUser("dev-user", "dev@futivo.local")
                 : null;
         }
 

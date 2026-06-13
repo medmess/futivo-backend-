@@ -33,8 +33,10 @@ public sealed class NewsService(INewsRepository repository, SupabaseStorageServi
             request.ImagePath.Trim(),
             imageUrl,
             string.IsNullOrWhiteSpace(request.Source) ? "Offside" : request.Source.Trim(),
+            "pending",
             request.PublishedAt,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            null);
 
         return await repository.CreateAsync(post);
     }
@@ -48,8 +50,10 @@ public sealed class NewsService(INewsRepository repository, SupabaseStorageServi
             request.Caption.Trim(),
             imageUrl,
             imageUrl,
-            string.IsNullOrWhiteSpace(request.Source) ? "GFN Admin" : request.Source.Trim(),
+            string.IsNullOrWhiteSpace(request.Source) ? "Futivo Admin" : request.Source.Trim(),
+            "approved",
             request.PublishedAt ?? DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow);
 
         return repository.CreateAsync(post);

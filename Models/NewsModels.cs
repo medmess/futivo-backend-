@@ -22,8 +22,10 @@ public sealed record NewsPost(
     string ImagePath,
     string? ImageUrl,
     string Source,
+    string ModerationStatus,
     DateTimeOffset PublishedAt,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? ReviewedAt);
 
 public sealed record NewsAdRequest(
     string Title,

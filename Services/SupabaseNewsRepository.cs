@@ -30,8 +30,10 @@ public sealed class SupabaseNewsRepository(
             image_path = post.ImagePath,
             image_url = post.ImageUrl,
             source = post.Source,
+            moderation_status = post.ModerationStatus,
             published_at = post.PublishedAt,
-            created_at = post.CreatedAt
+            created_at = post.CreatedAt,
+            reviewed_at = post.ReviewedAt
         });
 
         return post;
@@ -40,7 +42,7 @@ public sealed class SupabaseNewsRepository(
     public async Task<IReadOnlyList<NewsPost>> GetLatestAsync(int limit)
     {
         var posts = await GetJsonArrayAsync(
-            $"news_posts?select=*&order=published_at.desc&limit={limit}");
+            $"news_posts?select=*&moderation_status=eq.approved&order=published_at.desc&limit={limit}");
         return posts.Select(ParsePost).ToArray();
     }
 
@@ -94,8 +96,15 @@ public sealed class SupabaseNewsRepository(
             item.GetProperty("image_path").GetString() ?? "",
             item.TryGetProperty("image_url", out var imageUrl) ? imageUrl.GetString() : null,
             item.GetProperty("source").GetString() ?? "Offside",
+            item.TryGetProperty("moderation_status", out var moderationStatus)
+                ? moderationStatus.GetString() ?? "approved"
+                : "approved",
             item.GetProperty("published_at").GetDateTimeOffset(),
-            item.GetProperty("created_at").GetDateTimeOffset());
+            item.GetProperty("created_at").GetDateTimeOffset(),
+            item.TryGetProperty("reviewed_at", out var reviewedAt) &&
+            reviewedAt.ValueKind != JsonValueKind.Null
+                ? reviewedAt.GetDateTimeOffset()
+                : null);
     }
 
     private async Task<IReadOnlyList<JsonElement>> GetJsonArrayAsync(string path)

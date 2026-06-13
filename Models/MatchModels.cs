@@ -6,6 +6,7 @@ public sealed record ManualMatchDetailsRequest(
     string AwayTeam,
     string? HomeFormation,
     string? AwayFormation,
+    string? LiveStreamUrl,
     IReadOnlyList<MatchLineupPlayerRequest>? HomeLineup,
     IReadOnlyList<MatchLineupPlayerRequest>? AwayLineup,
     IReadOnlyList<MatchEventRequest>? Events);
@@ -31,6 +32,7 @@ public sealed record ManualMatchDetails(
     string AwayTeam,
     string? HomeFormation,
     string? AwayFormation,
+    string? LiveStreamUrl,
     IReadOnlyList<MatchLineupPlayer> HomeLineup,
     IReadOnlyList<MatchLineupPlayer> AwayLineup,
     IReadOnlyList<MatchEvent> Events,

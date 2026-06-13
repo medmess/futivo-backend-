@@ -17,6 +17,7 @@ public sealed class ManualMatchService(IManualMatchRepository repository)
             request.AwayTeam.Trim(),
             Clean(request.HomeFormation),
             Clean(request.AwayFormation),
+            Clean(request.LiveStreamUrl),
             (request.HomeLineup ?? [])
                 .Where(player => !string.IsNullOrWhiteSpace(player.Name))
                 .Select(ToLineupPlayer)
