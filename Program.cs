@@ -25,6 +25,7 @@ builder.Services.AddHttpClient<SupabaseManualMatchRepository>();
 builder.Services.AddHttpClient<SupabaseMatchPredictionRepository>();
 builder.Services.AddHttpClient<SupabaseStorageService>();
 builder.Services.AddHttpClient<SupabasePushNotificationRepository>();
+builder.Services.AddHttpClient<SupabaseProfileLookupService>();
 builder.Services.AddSingleton<InMemoryGroupRepository>();
 builder.Services.AddSingleton<InMemoryNewsRepository>();
 builder.Services.AddSingleton<InMemoryNewsAdRepository>();
@@ -176,6 +177,21 @@ app.MapGet("/api/news/latest", async (int? limit, string? language, NewsService 
         ? publicBaseUrl.TrimEnd('/')
         : $"{(string.IsNullOrWhiteSpace(forwardedProto) ? request.Scheme : forwardedProto)}://{(string.IsNullOrWhiteSpace(forwardedHost) ? request.Host : forwardedHost)}";
     return Results.Ok(posts.Select(post => NewsPostResponse.From(post, baseUrl)));
+});
+
+app.MapGet("/api/auth/resolve-login", async (
+    string? login,
+    SupabaseProfileLookupService profiles) =>
+{
+    if (string.IsNullOrWhiteSpace(login))
+    {
+        return Results.BadRequest(new { message = "login is required." });
+    }
+
+    var email = await profiles.ResolveLoginEmailAsync(login);
+    return string.IsNullOrWhiteSpace(email)
+        ? Results.NotFound(new { message = "account not found." })
+        : Results.Ok(new { email });
 });
 
 app.MapGet("/api/ads/news", async (NewsAdService ads) =>

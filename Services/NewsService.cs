@@ -63,7 +63,17 @@ public sealed class NewsService(INewsRepository repository, SupabaseStorageServi
 
     public Task<IReadOnlyList<NewsPost>> GetLatestAsync(int limit, string? language = null)
     {
-        return repository.GetLatestAsync(Math.Clamp(limit, 1, 50), NormalizeLanguage(language));
+        var requestedLimit = Math.Clamp(limit, 1, 50);
+        return GetLatestFilteredAsync(requestedLimit, NormalizeLanguage(language));
+    }
+
+    private async Task<IReadOnlyList<NewsPost>> GetLatestFilteredAsync(int limit, string language)
+    {
+        var posts = await repository.GetLatestAsync(50, language);
+        return posts
+            .Where(post => IsAllowedSourceForLanguage(post.Source, language))
+            .Take(limit)
+            .ToArray();
     }
 
     public Task<bool> DeleteByTelegramPostIdAsync(long telegramPostId)
@@ -93,6 +103,28 @@ public sealed class NewsService(INewsRepository repository, SupabaseStorageServi
         }
 
         return "ar";
+    }
+
+    private static bool IsAllowedSourceForLanguage(string source, string language)
+    {
+        var value = source.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        if (language == "fr")
+        {
+            return value.Contains("info sportz") ||
+                   value.Contains("infosportz") ||
+                   value.Contains("info sports plus") ||
+                   value.Contains("infosportsplus");
+        }
+
+        return value.Contains("offside") ||
+               value.Contains("european sport") ||
+               value.Contains("erupean sport") ||
+               value.Contains("erupean_sportt");
     }
 }
 

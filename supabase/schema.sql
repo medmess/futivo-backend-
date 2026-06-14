@@ -148,6 +148,34 @@ on public.notification_logs
 for select
 using (auth.uid() = user_id);
 
+alter table public.profiles
+add column if not exists email text;
+
+alter table public.profiles
+add column if not exists nickname text;
+
+create index if not exists profiles_email_lower_idx
+on public.profiles (lower(email));
+
+create index if not exists profiles_nickname_lower_idx
+on public.profiles (lower(nickname));
+
+create or replace function public.get_login_email(login_input text)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.email
+  from public.profiles p
+  where lower(coalesce(p.email, '')) = lower(trim(login_input))
+     or lower(coalesce(p.nickname, '')) = lower(trim(login_input))
+  limit 1;
+$$;
+
+grant execute on function public.get_login_email(text) to anon, authenticated;
+
 create table if not exists public.news_ads (
   id text primary key,
   title text not null,
