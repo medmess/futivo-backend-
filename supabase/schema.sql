@@ -85,6 +85,69 @@ on public.news_posts
 for select
 using (moderation_status = 'approved');
 
+create table if not exists public.user_push_tokens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  fcm_token text not null unique,
+  platform text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists user_push_tokens_user_id_idx
+on public.user_push_tokens (user_id);
+
+alter table public.user_push_tokens enable row level security;
+
+drop policy if exists "users can manage own push tokens"
+on public.user_push_tokens;
+create policy "users can manage own push tokens"
+on public.user_push_tokens
+for all
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+create table if not exists public.notification_campaigns (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  body text not null,
+  image_url text,
+  target_type text not null default 'all'
+    check (target_type in ('all', 'user', 'favorite_team')),
+  target_value text,
+  created_by uuid,
+  created_at timestamptz not null default now(),
+  sent_at timestamptz
+);
+
+create index if not exists notification_campaigns_created_at_idx
+on public.notification_campaigns (created_at desc);
+
+alter table public.notification_campaigns enable row level security;
+
+create table if not exists public.notification_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade,
+  campaign_id uuid references public.notification_campaigns(id) on delete set null,
+  title text not null,
+  body text not null,
+  type text not null default 'manual',
+  data jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists notification_logs_user_id_created_at_idx
+on public.notification_logs (user_id, created_at desc);
+
+alter table public.notification_logs enable row level security;
+
+drop policy if exists "users can read own notification logs"
+on public.notification_logs;
+create policy "users can read own notification logs"
+on public.notification_logs
+for select
+using (auth.uid() = user_id);
+
 create table if not exists public.news_ads (
   id text primary key,
   title text not null,

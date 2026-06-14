@@ -24,11 +24,14 @@ builder.Services.AddHttpClient<SupabaseNewsAdRepository>();
 builder.Services.AddHttpClient<SupabaseManualMatchRepository>();
 builder.Services.AddHttpClient<SupabaseMatchPredictionRepository>();
 builder.Services.AddHttpClient<SupabaseStorageService>();
+builder.Services.AddHttpClient<SupabasePushNotificationRepository>();
 builder.Services.AddSingleton<InMemoryGroupRepository>();
 builder.Services.AddSingleton<InMemoryNewsRepository>();
 builder.Services.AddSingleton<InMemoryNewsAdRepository>();
 builder.Services.AddSingleton<InMemoryManualMatchRepository>();
 builder.Services.AddSingleton<InMemoryMatchPredictionRepository>();
+builder.Services.AddSingleton<InMemoryPushNotificationRepository>();
+builder.Services.AddSingleton<IFirebasePushSender, FirebasePushSender>();
 builder.Services.AddSingleton<GroupCodeGenerator>();
 builder.Services.AddScoped<FantasyScoringService>();
 builder.Services.AddScoped<StandingsService>();
@@ -37,6 +40,7 @@ builder.Services.AddScoped<NewsService>();
 builder.Services.AddScoped<NewsAdService>();
 builder.Services.AddScoped<ManualMatchService>();
 builder.Services.AddScoped<MatchPredictionService>();
+builder.Services.AddScoped<PushNotificationService>();
 builder.Services.AddScoped<IGroupRepository>(provider =>
 {
     var options = provider
@@ -86,6 +90,16 @@ builder.Services.AddScoped<IMatchPredictionRepository>(provider =>
     return options.IsConfigured
         ? provider.GetRequiredService<SupabaseMatchPredictionRepository>()
         : provider.GetRequiredService<InMemoryMatchPredictionRepository>();
+});
+builder.Services.AddScoped<IPushNotificationRepository>(provider =>
+{
+    var options = provider
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<SupabaseOptions>>()
+        .Value;
+
+    return options.IsConfigured
+        ? provider.GetRequiredService<SupabasePushNotificationRepository>()
+        : provider.GetRequiredService<InMemoryPushNotificationRepository>();
 });
 
 var app = builder.Build();
@@ -196,8 +210,16 @@ app.MapGet("/api/matches/{matchId}/manual", async (
 
 app.MapPost("/api/admin/matches/manual", async (
     ManualMatchDetailsRequest request,
-    ManualMatchService matches) =>
+    HttpContext httpContext,
+    ManualMatchService matches,
+    PushNotificationService pushNotifications,
+    IConfiguration configuration) =>
 {
+    if (!IsAdminRequestAuthorized(httpContext, configuration))
+    {
+        return Results.Unauthorized();
+    }
+
     if (string.IsNullOrWhiteSpace(request.MatchId) ||
         string.IsNullOrWhiteSpace(request.HomeTeam) ||
         string.IsNullOrWhiteSpace(request.AwayTeam))
@@ -205,8 +227,56 @@ app.MapPost("/api/admin/matches/manual", async (
         return Results.BadRequest(new { message = "matchId, homeTeam and awayTeam are required." });
     }
 
+    var previous = await matches.GetAsync(request.MatchId);
     var details = await matches.UpsertAsync(request);
+    if (previous is not null)
+    {
+        await pushNotifications.SendMatchEventAsync(previous, details);
+    }
+
     return Results.Ok(ManualMatchDetailsResponse.From(details));
+});
+
+app.MapPost("/api/push-tokens", async (
+    PushTokenRequest request,
+    HttpContext httpContext,
+    SupabaseAuthService auth,
+    PushNotificationService pushNotifications) =>
+{
+    var user = await auth.GetUserAsync(httpContext);
+    if (user is null) return Results.Unauthorized();
+
+    try
+    {
+        await pushNotifications.RegisterTokenAsync(user, request);
+        return Results.NoContent();
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
+});
+
+app.MapPost("/api/admin/notifications/send", async (
+    AdminNotificationRequest request,
+    HttpContext httpContext,
+    PushNotificationService pushNotifications,
+    IConfiguration configuration) =>
+{
+    if (!IsAdminRequestAuthorized(httpContext, configuration))
+    {
+        return Results.Unauthorized();
+    }
+
+    try
+    {
+        var result = await pushNotifications.SendAdminAsync(request);
+        return Results.Ok(result);
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
 });
 
 app.MapGet("/api/predictions/mine", async (
@@ -323,6 +393,18 @@ app.MapGet("/api/groups/mine", async (
 
     return Results.Ok(await groups.GetMineAsync(user));
 });
+
+static bool IsAdminRequestAuthorized(HttpContext httpContext, IConfiguration configuration)
+{
+    var configuredKey = configuration["AdminApiKey"];
+    if (string.IsNullOrWhiteSpace(configuredKey))
+    {
+        return true;
+    }
+
+    var providedKey = httpContext.Request.Headers["X-Admin-Api-Key"].FirstOrDefault();
+    return string.Equals(configuredKey, providedKey, StringComparison.Ordinal);
+}
 
 app.Run();
 
