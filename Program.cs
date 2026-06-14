@@ -152,9 +152,9 @@ app.MapPost("/api/news/admin", async (
     return Results.Ok(NewsPostResponse.From(post));
 });
 
-app.MapGet("/api/news/latest", async (int? limit, NewsService news, HttpRequest request) =>
+app.MapGet("/api/news/latest", async (int? limit, string? language, NewsService news, HttpRequest request) =>
 {
-    var posts = await news.GetLatestAsync(limit ?? 30);
+    var posts = await news.GetLatestAsync(limit ?? 30, language);
     var forwardedHost = request.Headers["X-Forwarded-Host"].FirstOrDefault();
     var forwardedProto = request.Headers["X-Forwarded-Proto"].FirstOrDefault();
     var publicBaseUrl = request.Headers["X-Public-Base-Url"].FirstOrDefault();
@@ -333,6 +333,7 @@ sealed record NewsPostResponse(
     string ImagePath,
     string ImageUrl,
     string Source,
+    string Language,
     string ModerationStatus,
     DateTimeOffset PublishedAt,
     DateTimeOffset CreatedAt,
@@ -354,6 +355,7 @@ sealed record NewsPostResponse(
             post.ImagePath,
             imageUrl ?? post.ImagePath,
             post.Source,
+            post.Language,
             post.ModerationStatus,
             post.PublishedAt,
             post.CreatedAt,

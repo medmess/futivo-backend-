@@ -41,12 +41,18 @@ create table if not exists public.news_posts (
   image_path text not null,
   image_url text,
   source text not null default 'Offside',
+  language text not null default 'ar'
+    check (language in ('ar', 'fr')),
   moderation_status text not null default 'approved'
     check (moderation_status in ('pending', 'approved', 'rejected')),
   published_at timestamptz not null,
   created_at timestamptz not null default now(),
   reviewed_at timestamptz
 );
+
+alter table public.news_posts
+add column if not exists language text not null default 'ar'
+check (language in ('ar', 'fr'));
 
 alter table public.news_posts
 add column if not exists moderation_status text not null default 'approved'
@@ -66,6 +72,9 @@ on public.news_posts (published_at desc);
 
 create index if not exists news_posts_moderation_published_at_idx
 on public.news_posts (moderation_status, published_at desc);
+
+create index if not exists news_posts_language_moderation_published_at_idx
+on public.news_posts (language, moderation_status, published_at desc);
 
 alter table public.news_posts enable row level security;
 

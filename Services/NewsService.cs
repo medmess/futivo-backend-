@@ -33,6 +33,7 @@ public sealed class NewsService(INewsRepository repository, SupabaseStorageServi
             request.ImagePath.Trim(),
             imageUrl,
             string.IsNullOrWhiteSpace(request.Source) ? "Offside" : request.Source.Trim(),
+            NormalizeLanguage(request.Language, request.Source),
             "pending",
             request.PublishedAt,
             DateTimeOffset.UtcNow,
@@ -51,6 +52,7 @@ public sealed class NewsService(INewsRepository repository, SupabaseStorageServi
             imageUrl,
             imageUrl,
             string.IsNullOrWhiteSpace(request.Source) ? "Futivo Admin" : request.Source.Trim(),
+            NormalizeLanguage(request.Language, request.Source),
             "approved",
             request.PublishedAt ?? DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow,
@@ -59,14 +61,38 @@ public sealed class NewsService(INewsRepository repository, SupabaseStorageServi
         return repository.CreateAsync(post);
     }
 
-    public Task<IReadOnlyList<NewsPost>> GetLatestAsync(int limit)
+    public Task<IReadOnlyList<NewsPost>> GetLatestAsync(int limit, string? language = null)
     {
-        return repository.GetLatestAsync(Math.Clamp(limit, 1, 50));
+        return repository.GetLatestAsync(Math.Clamp(limit, 1, 50), NormalizeLanguage(language));
     }
 
     public Task<bool> DeleteByTelegramPostIdAsync(long telegramPostId)
     {
         return repository.DeleteByTelegramPostIdAsync(telegramPostId);
+    }
+
+    private static string NormalizeLanguage(string? language, string? source = null)
+    {
+        var value = language?.Trim().ToLowerInvariant();
+        if (value is "fr" or "french" or "francais" or "français")
+        {
+            return "fr";
+        }
+
+        if (value is "ar" or "arabic" or "arabe")
+        {
+            return "ar";
+        }
+
+        var sourceValue = source?.Trim().ToLowerInvariant() ?? "";
+        if (sourceValue.Contains("info sport") ||
+            sourceValue.Contains("infosport") ||
+            sourceValue.Contains("le lien"))
+        {
+            return "fr";
+        }
+
+        return "ar";
     }
 }
 
@@ -74,7 +100,7 @@ public interface INewsRepository
 {
     Task<NewsPost?> FindByTelegramPostIdAsync(long telegramPostId);
     Task<NewsPost> CreateAsync(NewsPost post);
-    Task<IReadOnlyList<NewsPost>> GetLatestAsync(int limit);
+    Task<IReadOnlyList<NewsPost>> GetLatestAsync(int limit, string language);
     Task<NewsPost?> UpdateImageUrlAsync(long telegramPostId, string imageUrl, string imagePath);
     Task<bool> DeleteByTelegramPostIdAsync(long telegramPostId);
 }

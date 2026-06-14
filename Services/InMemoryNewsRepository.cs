@@ -25,7 +25,7 @@ public sealed class InMemoryNewsRepository : INewsRepository
         }
     }
 
-    public Task<IReadOnlyList<NewsPost>> GetLatestAsync(int limit)
+    public Task<IReadOnlyList<NewsPost>> GetLatestAsync(int limit, string language)
     {
         lock (_lock)
         {
@@ -33,6 +33,10 @@ public sealed class InMemoryNewsRepository : INewsRepository
                 .Where(post => string.Equals(
                     post.ModerationStatus,
                     "approved",
+                    StringComparison.OrdinalIgnoreCase))
+                .Where(post => string.Equals(
+                    post.Language,
+                    language,
                     StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(post => post.PublishedAt)
                 .Take(limit)

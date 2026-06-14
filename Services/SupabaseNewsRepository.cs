@@ -30,6 +30,7 @@ public sealed class SupabaseNewsRepository(
             image_path = post.ImagePath,
             image_url = post.ImageUrl,
             source = post.Source,
+            language = post.Language,
             moderation_status = post.ModerationStatus,
             published_at = post.PublishedAt,
             created_at = post.CreatedAt,
@@ -39,10 +40,10 @@ public sealed class SupabaseNewsRepository(
         return post;
     }
 
-    public async Task<IReadOnlyList<NewsPost>> GetLatestAsync(int limit)
+    public async Task<IReadOnlyList<NewsPost>> GetLatestAsync(int limit, string language)
     {
         var posts = await GetJsonArrayAsync(
-            $"news_posts?select=*&moderation_status=eq.approved&order=published_at.desc&limit={limit}");
+            $"news_posts?select=*&moderation_status=eq.approved&language=eq.{Uri.EscapeDataString(language)}&order=published_at.desc&limit={limit}");
         return posts.Select(ParsePost).ToArray();
     }
 
@@ -96,6 +97,9 @@ public sealed class SupabaseNewsRepository(
             item.GetProperty("image_path").GetString() ?? "",
             item.TryGetProperty("image_url", out var imageUrl) ? imageUrl.GetString() : null,
             item.GetProperty("source").GetString() ?? "Offside",
+            item.TryGetProperty("language", out var language)
+                ? language.GetString() ?? "ar"
+                : "ar",
             item.TryGetProperty("moderation_status", out var moderationStatus)
                 ? moderationStatus.GetString() ?? "approved"
                 : "approved",

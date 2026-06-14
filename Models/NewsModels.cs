@@ -6,6 +6,7 @@ public sealed record TelegramNewsPostRequest(
     string ImagePath,
     DateTimeOffset PublishedAt,
     string Source,
+    string? Language,
     string? ImageBase64,
     string? ImageContentType);
 
@@ -13,7 +14,8 @@ public sealed record AdminNewsPostRequest(
     string Caption,
     string ImageUrl,
     DateTimeOffset? PublishedAt,
-    string? Source);
+    string? Source,
+    string? Language);
 
 public sealed record NewsPost(
     string Id,
@@ -22,6 +24,7 @@ public sealed record NewsPost(
     string ImagePath,
     string? ImageUrl,
     string Source,
+    string Language,
     string ModerationStatus,
     DateTimeOffset PublishedAt,
     DateTimeOffset CreatedAt,
