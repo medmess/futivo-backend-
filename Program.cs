@@ -26,6 +26,7 @@ builder.Services.AddHttpClient<SupabaseMatchPredictionRepository>();
 builder.Services.AddHttpClient<SupabaseStorageService>();
 builder.Services.AddHttpClient<SupabasePushNotificationRepository>();
 builder.Services.AddHttpClient<SupabaseProfileLookupService>();
+builder.Services.AddHttpClient<SupabaseTestAuthService>();
 builder.Services.AddSingleton<InMemoryGroupRepository>();
 builder.Services.AddSingleton<InMemoryNewsRepository>();
 builder.Services.AddSingleton<InMemoryNewsAdRepository>();
@@ -192,6 +193,34 @@ app.MapGet("/api/auth/resolve-login", async (
     return string.IsNullOrWhiteSpace(email)
         ? Results.NotFound(new { message = "account not found." })
         : Results.Ok(new { email });
+});
+
+app.MapPost("/api/auth/register-test", async (
+    TestRegisterRequest request,
+    SupabaseTestAuthService auth) =>
+{
+    if (string.IsNullOrWhiteSpace(request.FullName) ||
+        string.IsNullOrWhiteSpace(request.Nickname) ||
+        string.IsNullOrWhiteSpace(request.Email) ||
+        string.IsNullOrWhiteSpace(request.Password))
+    {
+        return Results.BadRequest(new { message = "fullName, nickname, email and password are required." });
+    }
+
+    if (request.Password.Length < 6)
+    {
+        return Results.BadRequest(new { message = "password must be at least 6 characters." });
+    }
+
+    try
+    {
+        var result = await auth.RegisterWithoutEmailConfirmationAsync(request);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
 });
 
 app.MapGet("/api/ads/news", async (NewsAdService ads) =>
