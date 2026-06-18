@@ -38,7 +38,9 @@ public sealed class InMemoryNewsRepository : INewsRepository
                     post.Language,
                     language,
                     StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(post => post.PublishedAt)
+                .Where(post => post.ExpiresAt is null || post.ExpiresAt > DateTimeOffset.UtcNow)
+                .OrderByDescending(post => post.IsFeatured)
+                .ThenByDescending(post => post.PublishedAt)
                 .Take(limit)
                 .ToArray();
             return Task.FromResult<IReadOnlyList<NewsPost>>(posts);

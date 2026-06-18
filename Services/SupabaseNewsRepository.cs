@@ -32,9 +32,11 @@ public sealed class SupabaseNewsRepository(
             source = post.Source,
             language = post.Language,
             moderation_status = post.ModerationStatus,
+            is_featured = post.IsFeatured,
             published_at = post.PublishedAt,
             created_at = post.CreatedAt,
-            reviewed_at = post.ReviewedAt
+            reviewed_at = post.ReviewedAt,
+            expires_at = post.ExpiresAt
         });
 
         return post;
@@ -44,7 +46,10 @@ public sealed class SupabaseNewsRepository(
     {
         var posts = await GetJsonArrayAsync(
             $"news_posts?select=*&moderation_status=eq.approved&language=eq.{Uri.EscapeDataString(language)}&order=published_at.desc&limit={limit}");
-        return posts.Select(ParsePost).ToArray();
+        return posts
+            .Select(ParsePost)
+            .Where(post => post.ExpiresAt is null || post.ExpiresAt > DateTimeOffset.UtcNow)
+            .ToArray();
     }
 
     public async Task<NewsPost?> UpdateImageUrlAsync(
@@ -103,11 +108,18 @@ public sealed class SupabaseNewsRepository(
             item.TryGetProperty("moderation_status", out var moderationStatus)
                 ? moderationStatus.GetString() ?? "approved"
                 : "approved",
+            item.TryGetProperty("is_featured", out var isFeatured) &&
+            isFeatured.ValueKind != JsonValueKind.Null &&
+            isFeatured.GetBoolean(),
             item.GetProperty("published_at").GetDateTimeOffset(),
             item.GetProperty("created_at").GetDateTimeOffset(),
             item.TryGetProperty("reviewed_at", out var reviewedAt) &&
             reviewedAt.ValueKind != JsonValueKind.Null
                 ? reviewedAt.GetDateTimeOffset()
+                : null,
+            item.TryGetProperty("expires_at", out var expiresAt) &&
+            expiresAt.ValueKind != JsonValueKind.Null
+                ? expiresAt.GetDateTimeOffset()
                 : null);
     }
 

@@ -24,23 +24,54 @@ public sealed class SupabaseTestAuthService(
         var fullName = request.FullName.Trim();
         var nickname = request.Nickname.Trim().ToLowerInvariant();
         var email = request.Email.Trim().ToLowerInvariant();
+        await EnsureAuthEmailColumnAsync();
 
-        var userId = await CreateConfirmedUserAsync(
-            email,
-            request.Password,
-            fullName,
-            nickname);
+        if (await IsNicknameTakenAsync(nickname))
+        {
+            throw new InvalidOperationException("nickname already exists.");
+        }
 
-        await UpsertProfileAsync(userId, fullName, nickname, email);
+        var existingEmailProfiles = await LookupProfilesAsync($"email=eq.{Uri.EscapeDataString(email)}", 3);
+        if (existingEmailProfiles.Count >= 3)
+        {
+            throw new InvalidOperationException("email account limit reached.");
+        }
 
-        return new TestRegisterResponse(userId, email, nickname);
+        var authEmail = BuildAuthEmail(email, nickname, existingEmailProfiles.Count + 1);
+
+        string userId;
+        try
+        {
+            userId = await CreateConfirmedUserAsync(
+                authEmail,
+                request.Password,
+                fullName,
+                nickname,
+                email);
+        }
+        catch (InvalidOperationException exception) when (
+            IsDuplicateEmailError(exception.Message))
+        {
+            authEmail = BuildAuthEmail(email, nickname, existingEmailProfiles.Count + 2);
+            userId = await CreateConfirmedUserAsync(
+                authEmail,
+                request.Password,
+                fullName,
+                nickname,
+                email);
+        }
+
+        await UpsertProfileAsync(userId, fullName, nickname, email, authEmail);
+
+        return new TestRegisterResponse(userId, email, authEmail, nickname);
     }
 
     private async Task<string> CreateConfirmedUserAsync(
         string email,
         string password,
         string fullName,
-        string nickname)
+        string nickname,
+        string publicEmail)
     {
         using var request = CreateAuthRequest(HttpMethod.Post, "admin/users");
         request.Content = new StringContent(
@@ -53,7 +84,7 @@ public sealed class SupabaseTestAuthService(
                 {
                     full_name = fullName,
                     nickname,
-                    email
+                    email = publicEmail
                 }
             }, JsonOptions),
             Encoding.UTF8,
@@ -75,7 +106,8 @@ public sealed class SupabaseTestAuthService(
         string userId,
         string fullName,
         string nickname,
-        string email)
+        string email,
+        string authEmail)
     {
         using var request = CreateRestRequest(HttpMethod.Post, "profiles");
         request.Content = new StringContent(
@@ -85,6 +117,7 @@ public sealed class SupabaseTestAuthService(
                 full_name = fullName,
                 nickname,
                 email,
+                auth_email = authEmail,
                 phone = (string?)null,
                 role = "user",
                 favorite_team = (string?)null
@@ -97,6 +130,95 @@ public sealed class SupabaseTestAuthService(
 
         using var response = await httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
+    }
+
+    private async Task EnsureAuthEmailColumnAsync()
+    {
+        using var request = CreateRestRequest(HttpMethod.Get, "profiles?select=id,auth_email&limit=1");
+        using var response = await httpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var content = await response.Content.ReadAsStringAsync();
+        if (content.Contains("auth_email", StringComparison.OrdinalIgnoreCase) ||
+            content.Contains("schema cache", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Supabase profiles.auth_email column is required. Run supabase/auth_testing_aliases.sql before creating accounts.");
+        }
+
+        throw new InvalidOperationException(content);
+    }
+
+    private async Task<List<JsonElement>> LookupProfilesAsync(string filter, int limit)
+    {
+        using var request = CreateRestRequest(
+            HttpMethod.Get,
+            $"profiles?select=id,email,auth_email,nickname&{filter}&limit={limit}");
+
+        using var response = await httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        using var document = await JsonDocument.ParseAsync(stream);
+        return document.RootElement.EnumerateArray().Select(row => row.Clone()).ToList();
+    }
+
+    public async Task<bool> IsNicknameTakenAsync(string nickname)
+    {
+        if (!_options.IsConfigured)
+        {
+            return false;
+        }
+
+        var cleaned = nickname.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(cleaned))
+        {
+            return false;
+        }
+
+        return (await LookupProfilesAsync(
+            $"nickname=eq.{Uri.EscapeDataString(cleaned)}",
+            1)).Count > 0;
+    }
+
+    private static string BuildAuthEmail(string email, string nickname, int accountNumber)
+    {
+        var parts = email.Split('@', 2);
+        if (parts.Length != 2)
+        {
+            throw new InvalidOperationException("email invalid.");
+        }
+
+        var local = SanitizeEmailPart(parts[0]);
+        var nick = SanitizeEmailPart(nickname);
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        return $"{local}.{nick}.futivo{accountNumber}.{suffix}@auth.futivo.app";
+    }
+
+    private static string SanitizeEmailPart(string value)
+    {
+        var builder = new StringBuilder();
+        foreach (var character in value.Trim().ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(character))
+            {
+                builder.Append(character);
+            }
+        }
+
+        return builder.Length == 0 ? "user" : builder.ToString();
+    }
+
+    private static bool IsDuplicateEmailError(string message)
+    {
+        var value = message.ToLowerInvariant();
+        return value.Contains("already") ||
+               value.Contains("registered") ||
+               value.Contains("exists") ||
+               value.Contains("duplicate");
     }
 
     private HttpRequestMessage CreateAuthRequest(HttpMethod method, string path)

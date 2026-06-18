@@ -15,7 +15,8 @@ public sealed record AdminNewsPostRequest(
     string ImageUrl,
     DateTimeOffset? PublishedAt,
     string? Source,
-    string? Language);
+    string? Language,
+    bool? IsFeatured);
 
 public sealed record NewsPost(
     string Id,
@@ -26,9 +27,11 @@ public sealed record NewsPost(
     string Source,
     string Language,
     string ModerationStatus,
+    bool IsFeatured,
     DateTimeOffset PublishedAt,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? ReviewedAt);
+    DateTimeOffset? ReviewedAt,
+    DateTimeOffset? ExpiresAt);
 
 public sealed record NewsAdRequest(
     string Title,

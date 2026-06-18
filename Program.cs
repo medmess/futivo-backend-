@@ -214,10 +214,33 @@ app.MapGet("/api/auth/resolve-login", async (
     return Results.BadRequest(new { message = "login is required." });
   }
 
-  var email = await profiles.ResolveLoginEmailAsync(login);
-  return string.IsNullOrWhiteSpace(email)
+  var authEmails = await profiles.ResolveLoginEmailsAsync(login);
+  return authEmails.Count == 0
       ? Results.NotFound(new { message = "account not found." })
-      : Results.Ok(new { email });
+      : Results.Ok(new ResolveLoginResponse(authEmails.FirstOrDefault(), authEmails));
+});
+
+app.MapGet("/api/auth/check-nickname", async (
+    string? nickname,
+    SupabaseTestAuthService auth) =>
+{
+  if (string.IsNullOrWhiteSpace(nickname))
+  {
+    return Results.BadRequest(new { message = "nickname is required." });
+  }
+
+  var cleaned = nickname.Trim().ToLowerInvariant();
+  var isValid = cleaned.Length >= 3 &&
+      cleaned.Length <= 20 &&
+      cleaned.All(character => char.IsLetterOrDigit(character) || character == '_');
+
+  if (!isValid)
+  {
+    return Results.BadRequest(new { message = "nickname invalid." });
+  }
+
+  var isTaken = await auth.IsNicknameTakenAsync(cleaned);
+  return Results.Ok(new { available = !isTaken });
 });
 
 app.MapPost("/api/auth/register-test", async (
@@ -235,6 +258,15 @@ app.MapPost("/api/auth/register-test", async (
   if (request.Password.Length < 6)
   {
     return Results.BadRequest(new { message = "password must be at least 6 characters." });
+  }
+
+  var nickname = request.Nickname.Trim().ToLowerInvariant();
+  var isNicknameValid = nickname.Length >= 3 &&
+      nickname.Length <= 20 &&
+      nickname.All(character => char.IsLetterOrDigit(character) || character == '_');
+  if (!isNicknameValid)
+  {
+    return Results.BadRequest(new { message = "nickname invalid." });
   }
 
   try
@@ -487,9 +519,11 @@ sealed record NewsPostResponse(
     string Source,
     string Language,
     string ModerationStatus,
+    bool IsFeatured,
     DateTimeOffset PublishedAt,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? ReviewedAt)
+    DateTimeOffset? ReviewedAt,
+    DateTimeOffset? ExpiresAt)
 {
   public static NewsPostResponse From(NewsPost post, string? baseUrl = null)
   {
@@ -509,9 +543,11 @@ sealed record NewsPostResponse(
         post.Source,
         post.Language,
         post.ModerationStatus,
+        post.IsFeatured,
         post.PublishedAt,
         post.CreatedAt,
-        post.ReviewedAt);
+        post.ReviewedAt,
+        post.ExpiresAt);
   }
 }
 

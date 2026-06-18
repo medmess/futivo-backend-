@@ -35,8 +35,10 @@ public sealed class NewsService(INewsRepository repository, SupabaseStorageServi
             string.IsNullOrWhiteSpace(request.Source) ? "Offside" : request.Source.Trim(),
             NormalizeLanguage(request.Language, request.Source),
             "pending",
+            false,
             request.PublishedAt,
             DateTimeOffset.UtcNow,
+            null,
             null);
 
         return await repository.CreateAsync(post);
@@ -54,9 +56,11 @@ public sealed class NewsService(INewsRepository repository, SupabaseStorageServi
             string.IsNullOrWhiteSpace(request.Source) ? "Futivo Admin" : request.Source.Trim(),
             NormalizeLanguage(request.Language, request.Source),
             "approved",
+            request.IsFeatured ?? false,
             request.PublishedAt ?? DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            (request.PublishedAt ?? DateTimeOffset.UtcNow).AddHours(24));
 
         return repository.CreateAsync(post);
     }
@@ -71,6 +75,7 @@ public sealed class NewsService(INewsRepository repository, SupabaseStorageServi
     {
         var posts = await repository.GetLatestAsync(50, language);
         return posts
+            .Where(post => post.ExpiresAt is null || post.ExpiresAt > DateTimeOffset.UtcNow)
             .Where(post => IsAllowedSourceForLanguage(post.Source, language))
             .Take(limit)
             .ToArray();
@@ -118,13 +123,19 @@ public sealed class NewsService(INewsRepository repository, SupabaseStorageServi
             return value.Contains("info sportz") ||
                    value.Contains("infosportz") ||
                    value.Contains("info sports plus") ||
-                   value.Contains("infosportsplus");
+                   value.Contains("infosportsplus") ||
+                   value.Contains("admin") ||
+                   value.Contains("futivo") ||
+                   value.Contains("le lien");
         }
 
         return value.Contains("offside") ||
                value.Contains("european sport") ||
                value.Contains("erupean sport") ||
-               value.Contains("erupean_sportt");
+               value.Contains("erupean_sportt") ||
+               value.Contains("admin") ||
+               value.Contains("futivo") ||
+               value.Contains("le lien");
     }
 }
 

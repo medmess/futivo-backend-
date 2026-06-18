@@ -11,38 +11,54 @@ public sealed class SupabaseProfileLookupService(
 {
     private readonly SupabaseOptions _options = options.Value;
 
-    public async Task<string?> ResolveLoginEmailAsync(string login)
+    public async Task<IReadOnlyList<string>> ResolveLoginEmailsAsync(string login)
     {
         if (!_options.IsConfigured)
         {
-            return null;
+            return [];
         }
 
         var cleaned = login.Trim().ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(cleaned))
         {
-            return null;
+            return [];
         }
 
         var escaped = Uri.EscapeDataString(cleaned);
         using var request = CreateRequest(
             HttpMethod.Get,
-            $"profiles?select=email&or=(email.eq.{escaped},nickname.eq.{escaped})&limit=1");
+            $"profiles?select=email,auth_email&or=(email.eq.{escaped},auth_email.eq.{escaped},nickname.eq.{escaped})&limit=3");
 
         using var response = await httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();
 
         await using var stream = await response.Content.ReadAsStreamAsync();
         using var document = await JsonDocument.ParseAsync(stream);
-        var first = document.RootElement.EnumerateArray().FirstOrDefault();
-        if (first.ValueKind == JsonValueKind.Undefined)
-        {
-            return null;
-        }
+        return document.RootElement
+            .EnumerateArray()
+            .Select(row =>
+            {
+                var authEmail = row.TryGetProperty("auth_email", out var authEmailElement)
+                    ? authEmailElement.GetString()
+                    : null;
+                if (!string.IsNullOrWhiteSpace(authEmail))
+                {
+                    return authEmail;
+                }
 
-        return first.TryGetProperty("email", out var email)
-            ? email.GetString()
-            : null;
+                return row.TryGetProperty("email", out var emailElement)
+                    ? emailElement.GetString()
+                    : null;
+            })
+            .Where(email => !string.IsNullOrWhiteSpace(email))
+            .Select(email => email!.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public async Task<string?> ResolveLoginEmailAsync(string login)
+    {
+        return (await ResolveLoginEmailsAsync(login)).FirstOrDefault();
     }
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string path)
