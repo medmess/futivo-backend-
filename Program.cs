@@ -23,6 +23,7 @@ builder.Services.AddHttpClient<SupabaseNewsRepository>();
 builder.Services.AddHttpClient<SupabaseNewsAdRepository>();
 builder.Services.AddHttpClient<SupabaseManualMatchRepository>();
 builder.Services.AddHttpClient<SupabaseMatchPredictionRepository>();
+builder.Services.AddHttpClient<SupabaseFantasySquadRepository>();
 builder.Services.AddHttpClient<SupabaseStorageService>();
 builder.Services.AddHttpClient<SupabasePushNotificationRepository>();
 builder.Services.AddHttpClient<SupabaseProfileLookupService>();
@@ -32,6 +33,7 @@ builder.Services.AddSingleton<InMemoryNewsRepository>();
 builder.Services.AddSingleton<InMemoryNewsAdRepository>();
 builder.Services.AddSingleton<InMemoryManualMatchRepository>();
 builder.Services.AddSingleton<InMemoryMatchPredictionRepository>();
+builder.Services.AddSingleton<InMemoryFantasySquadRepository>();
 builder.Services.AddSingleton<InMemoryPushNotificationRepository>();
 builder.Services.AddSingleton<IFirebasePushSender, FirebasePushSender>();
 builder.Services.AddSingleton<GroupCodeGenerator>();
@@ -43,6 +45,7 @@ builder.Services.AddScoped<NewsService>();
 builder.Services.AddScoped<NewsAdService>();
 builder.Services.AddScoped<ManualMatchService>();
 builder.Services.AddScoped<MatchPredictionService>();
+builder.Services.AddScoped<FantasySquadService>();
 builder.Services.AddScoped<PushNotificationService>();
 builder.Services.AddScoped<IGroupRepository>(provider =>
 {
@@ -93,6 +96,16 @@ builder.Services.AddScoped<IMatchPredictionRepository>(provider =>
   return options.IsConfigured
       ? provider.GetRequiredService<SupabaseMatchPredictionRepository>()
       : provider.GetRequiredService<InMemoryMatchPredictionRepository>();
+});
+builder.Services.AddScoped<IFantasySquadRepository>(provider =>
+{
+  var options = provider
+      .GetRequiredService<Microsoft.Extensions.Options.IOptions<SupabaseOptions>>()
+      .Value;
+
+  return options.IsConfigured
+      ? provider.GetRequiredService<SupabaseFantasySquadRepository>()
+      : provider.GetRequiredService<InMemoryFantasySquadRepository>();
 });
 builder.Services.AddScoped<IPushNotificationRepository>(provider =>
 {
@@ -156,6 +169,33 @@ app.MapPost("/api/fantasy/recommendations/players",
       var result = recommendations.RecommendPlayers(request);
       return Results.Ok(result);
     });
+
+app.MapGet("/api/fantasy/squad", async (
+    HttpContext httpContext,
+    SupabaseAuthService auth,
+    FantasySquadService squads) =>
+{
+  var user = await auth.GetUserAsync(httpContext);
+  if (user is null) return Results.Unauthorized();
+
+  var squad = await squads.GetAsync(user);
+  return squad is null
+      ? Results.NotFound(new { message = "Fantasy squad not found." })
+      : Results.Ok(squad);
+});
+
+app.MapPut("/api/fantasy/squad", async (
+    FantasySquadRequest request,
+    HttpContext httpContext,
+    SupabaseAuthService auth,
+    FantasySquadService squads) =>
+{
+  var user = await auth.GetUserAsync(httpContext);
+  if (user is null) return Results.Unauthorized();
+
+  var squad = await squads.UpsertAsync(user, request);
+  return Results.Ok(squad);
+});
 
 app.MapPost("/api/standings/calculate",
     (StandingsCalculationRequest request, StandingsService standings) =>
